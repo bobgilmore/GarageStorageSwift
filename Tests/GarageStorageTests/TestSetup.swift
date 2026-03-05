@@ -20,9 +20,11 @@ public class TestSetup {
     
 }
 
+let testGarageRootFolder = "GarageStorageTests/"
+
 /// Returns a test garage for a named specific test point that is in-memory only.
 func makeTestGarage(_ name: String = #function) -> Garage {
-    let persistentStore = Garage.makePersistentStoreDescription("GarageStorageTests/\(name).sqlite")
+    let persistentStore = Garage.makePersistentStoreDescription("\(testGarageRootFolder)\(name).sqlite")
     persistentStore.type = NSInMemoryStoreType
     let garage = Garage(with: [persistentStore])
     garage.loadPersistentStores { _, _ in }
