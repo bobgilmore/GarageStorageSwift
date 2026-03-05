@@ -29,7 +29,7 @@ public enum GarageError: Error, CustomNSError, Equatable {
     /// The conditions for throwing this error are extremely rare, such as memory corruption while parking an object.
     case storageDataIsNil(String)
     
-    /// This error is thrown when using `park`, `retrieve`, or `delete` on an object that doesn't conform to `Identifiable`.
+    /// This error is thrown when using `park`, `retrieve`, or `delete` on an object that doesn't conform to `Identifiable` or `Hashable`.
     case missingConformance(String)
     
     /// This error is thrown when using `park`, `retrieve`, or `delete` on an object that conforms to `Identifiable` but whose ID type doesn't conform to `String`, `UUID`, or  `LosslessStringConvertible`.
@@ -51,7 +51,7 @@ public enum GarageError: Error, CustomNSError, Equatable {
             userInfo[NSLocalizedDescriptionKey] = "CoreDataObject.gsData is nil for type: \(typeName)"
             
         case .missingConformance(let typeName):
-            userInfo[NSLocalizedDescriptionKey] = "Missing Identifiable conformance for type: \(typeName)"
+            userInfo[NSLocalizedDescriptionKey] = "Missing Identifiable or Hashable conformance for type: \(typeName)"
           
         case .unsupportedIDConformance(let typeName):
             userInfo[NSLocalizedDescriptionKey] = "Identifiable ID type '\(typeName)' must be String, UUID, or LosslessStringConvertible"

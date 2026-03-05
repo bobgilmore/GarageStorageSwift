@@ -9,11 +9,11 @@
 import Foundation
 import CoreData
 
-/// The main interface for parking and retrieving objects. Anything stored at the top level directly must conform to `Codable` and `Identifiable`, or GarageStorage's ``Mappable`` protocol.
+/// The main interface for parking and retrieving objects. Anything stored at the top level directly must conform to `Codable`, and also conform to either `Hashable`, `Identifiable`, or GarageStorage’s ``Mappable`` protocol.
 ///
 /// The `Garage` is the main object that coordinates activity in GarageStorage. It's called a *garage* because you can park pretty much anything in it, like, you know, a garage. The `Garage` handles the backing Core Data stack, as well as the saving and retrieving of data. You *park* objects in the `Garage`, and *retrieve* them later.
 ///
-/// Any object going into or coming out of the `Garage` must conform to the `Codable` protocol. Top-level objects must also conform to the `Identifiable` protocol, or the ``Mappable`` convenience protocol (which is `Codable & Identifiable`) for uniquely identified top-level objects.
+/// Any object going into or coming out of the `Garage` must conform to the `Codable` protocol. Some objects may need to also conform to either the `Hashable` protocol, the `Identifiable` protocol, or the ``Mappable`` convenience protocol (which is `Codable & Identifiable`) for uniquely identified top-level objects.
 ///
 /// For Objective-C compatibility, the ``MappableObject`` protocol may be used instead.
 @objc(GSGarage)

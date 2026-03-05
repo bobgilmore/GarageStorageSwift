@@ -8,7 +8,7 @@ To start working with GarageStorage, you create a `Garage`, then start parking a
 
 ### How does a Garage work?
 
-Anything going into or coming out of the Garage must conform to the `Codable` protocol. Top-level objects—that is, anything stored or retrieved directly— must also conform to the `Identifiable` protocol for uniquely identified top-level objects. A top-level object can be stored or retrieved using its unique `id`, or as part of an array of the same type.
+Anything going into or coming out of the Garage must conform to the `Codable` protocol. Top-level objects—that is, anything stored or retrieved directly— must also conform to either the `Hashable` protocol, or `Identifiable` protocol for uniquely identified top-level objects. A top-level object can be stored or retrieved using its unique `id`, or as part of an array of the same type.
 
 It's important to draw a distinction between how Garage Storage operates and how Core Data operates: Garage Storage stores a JSON representation of your objects in Core Data, as opposed to storing the objects themselves, as Core Data does. There are some implications to this (explained below), but the best part is that you can add whatever type of object you like to the Garage, whenever you like. You don't have to migrate data models or anything, just park whatever you want!
 
@@ -46,11 +46,22 @@ In order to store this in GarageStorage, conform it to Codable:
 ```swift
 extension Address: Codable { }
 ```
-If this type is only embedded in another object, then no additional work is required. However, in order to *park* this object as a top-level object (that is, directly using `park(_:)` or `parkAll(_:)`), it must additionally conform to the `Identifiable` protocol (see next section).
+If this type is only embedded in another object, then no additional work is required. However, in order to *park* this object as a top-level object (that is, directly using `park(_:)` or `parkAll(_:)`), it must additionally conform to the either the `Hashable` protocol or the `Identifiable` protocol (see next section). 
+
+### What making an object Hashable does
+
+In the above case, an Address is going to be stored as an embedded object. However, if we wanted to also store Address at the top level, for example as part of an array of "known" or "recent" addresses to choose from, we might conform this type to `Hashable`.  In this example, since the properties are all `Hashable`, the type may simply be declared to also have `Hashable` conformance:
+```
+extension Address: Hashable { }
+```
+
+If many references of this type with the same value are being embedded (e.g., multiple objects embedding the exact same `Address`), then specifying `Hashable` conformance will also help reduce the overall storage footprint, by storing the value only once.
 
 ### Creating a top-level object
 
-A top-level object—that is, anything stored or retrieved directly using `park()`, `parkAll()`, `delete()`, etc.—must conform to `Identifiable`. They may be either value or reference types. The only requirement for `Identifiable` is that its ID conform to `String`, `UUID`, or `LosslessStringConvertible`. For example:
+As indicated in the previous section, a top-level object or elements of a top-level array need only conform to `Hashable`. They may be either value or reference types.
+
+Standalone top-level objects—that is, root objects that are parked directly using `park()`—often require being uniquely identified in the Garage, and are often reference types, such as classes. This is supported through the `Identifiable` protocol. The only requirement for `Identifiable` is that its ID conform to `String`, `UUID`, or `LosslessStringConvertible`. For example:
 
 ```swift
 class Person: Codable, Identifiable {
@@ -74,7 +85,7 @@ Parking an object puts a snapshot of that object into the Garage. As mentioned e
 ```swift
     try garage.park(myPerson)
 ```
-You may also park an array of objects in the garage (assuming all are `Codable` and `Identifiable` and of the same type):
+You may also park an array of objects in the garage (assuming all are `Codable` and `Hashable` or `Identifiable` and of the same type):
 ```swift
     try garage.parkAll([myBrother, mySister, myMom, myDad])
 ```
@@ -146,9 +157,11 @@ It's worth going into a bit of detail about how *identified*, *unidentified*, an
 
 Any `Identifiable` object with an *id* attribute will be stored as its own separate object in the Garage, and each *reference* will point back to that object. This is great if you have a bunch of objects that reference each other, as the graph is properly maintained in the garage, so a change to one object will be "seen" by the other objects pointing to it. This also enables you to *retrieve* any top-level object by its identifier.
 
-If the object is an embedded *property* of a top-level object, you may want to leave it *unidentified*, especially if it doesn't have an attribute that's logically its identifier, or if it is a value type. An object that does not conform to `Identifiable` is completely *anonymous*: it is serialized as in-line JSON, instead of having a separate underlying core data object. This means you won't be able to retrieve anonymous sub-objects by type directly. To make an object completely anonymous, it only needs to conform to `Codable`. 
+If you instead conform the type to `Hashable` then there is still only one instance or value of its type in storage; however, it is now an *unidentified* object. If you park an unidentified *Object A*, then change one of its properties, and park *Object A* again, you'll now have *two different versions* of *Object A* in the Garage, as its hash value has changed. If *Object A* had had an identifier, then *Object A* would have just been updated when it was parked the second time. Therefore, it's considered a best practice for top-level reference types to conform to `Identifiable` so that they always have an *id* attribute, and are treated as the same instance in storage.
 
-The primary advantages of *anonymous* objects are twofold: First, you don't have to arbitrarily pick an *identifier* if your object doesn't naturally have one. Second, there's an underlying difference in how deletion is handled. When you delete an object from the Garage, only the top level `Identifiable` is deleted. If it references other `Identifiable` objects, those sub-objects are not deleted. Garage Storage doesn't monitor retain counts on objects, so for safety, only the object specified is removed. However, since *anonymous* objects are part of its parent object's JSON, and are not separate underlying objects, they will be removed along with that top level object. It's considered best practice for embedded objects to be *anonymous*, unless there is a compelling reason otherwise, such as to reduce overall storage footprint.
+However, if the object is an embedded *property* of a top-level object, you may want to leave it *unidentified*, especially if it doesn't have an attribute that's logically its identifier, or if it is a value type. If the object does not conform to `Hashable`, then it is completely *anonymous*: it is serialized as in-line JSON, instead of having a separate underlying core data object, as an `Identifiable` or `Hashable` object would. This means you won't be able to retrieve anonymous sub-objects by type directly. To make an object completely anonymous, it only needs to conform to `Codable`. 
+
+The primary advantages of *anonymous* objects are twofold: First, you don't have to arbitrarily pick an *identifier* if your object doesn't naturally have one, and you don't have to bother conforming it to `Hashable` either. Second, there's an underlying difference in how deletion is handled. When you delete an object from the Garage, only the top level `Identifiable` is deleted. If it references other `Identifiable` or `Hashable` objects, those sub-objects are not deleted. Garage Storage doesn't monitor retain counts on objects, so for safety, only the object specified is removed. However, since *anonymous* objects are part of its parent object's JSON, and are not separate underlying objects, they will be removed along with that top level object. It's considered best practice for embedded objects to be *anonymous*, unless there is a compelling reason otherwise, such as to reduce overall storage footprint.
 
 ### Handling errors
 

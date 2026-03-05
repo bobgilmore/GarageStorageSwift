@@ -235,34 +235,34 @@ struct SwiftCodableTests {
         #expect(decodedChild.parent.age == 26, "parent age")
     }
     
-    @Test("Identifiable park and delete for value types")
-    func identifiableParkAndDelete() throws {
+    @Test("Hashable park and delete")
+    func hashableParkAndDelete() throws {
         let garage = makeTestGarage()
         
-        // Create and park addresses using Identifiable
+        // Create and park addresses using Hashable methods
         let address1 = swiftAddress()
         let address2 = swiftAddress2()
         try garage.park(address1)
         try garage.park(address2)
         
-        // Retrieve addresses using their Identifiable id
-        let retrievedAddress1 = try #require(try garage.retrieve(SwiftAddress.self, identifier: address1.id))
+        // Retrieve addresses using their hashValue
+        let retrievedAddress1 = try #require(try garage.retrieve(SwiftAddress.self, identifier: address1.hashValue))
         #expect(retrievedAddress1.street == "330 Congress St.", "expected street to match")
         #expect(retrievedAddress1.city == "Boston", "expected city to match")
         #expect(retrievedAddress1.zip == "02140", "expected zip to match")
         
-        let retrievedAddress2 = try #require(try garage.retrieve(SwiftAddress.self, identifier: address2.id))
+        let retrievedAddress2 = try #require(try garage.retrieve(SwiftAddress.self, identifier: address2.hashValue))
         #expect(retrievedAddress2.street == "321 Summer Street", "expected street to match")
         
-        // Delete first address
+        // Delete first address using Hashable delete method
         try garage.delete(address1)
         
         // Confirm first address is deleted
-        let deletedAddress = try? garage.retrieve(SwiftAddress.self, identifier: address1.id)
+        let deletedAddress = try? garage.retrieve(SwiftAddress.self, identifier: address1.hashValue)
         #expect(deletedAddress == nil, "First address should be deleted")
         
         // Confirm second address still exists
-        let stillExistingAddress = try #require(try garage.retrieve(SwiftAddress.self, identifier: address2.id))
+        let stillExistingAddress = try #require(try garage.retrieve(SwiftAddress.self, identifier: address2.hashValue))
         #expect(stillExistingAddress == address2, "Second address should still exist")
         
         // Delete second address
@@ -273,7 +273,7 @@ struct SwiftCodableTests {
         #expect(allAddresses.count == 0, "All addresses should be deleted")
     }
     
-    @Test("Identifiable park and retrieve")
+    @Test("Identifiable and Hashable park and retrieve")
     func identifiableAndHashable() throws {
         let garage = makeTestGarage()
         
@@ -341,8 +341,6 @@ struct SwiftCodableTests {
         #expect(retrieved.name == "TestItem", "expected name to match")
         #expect(retrieved.status == .active, "expected status to be .active")
     }
-
-
 
     @Test("Identifiable with custom non-convertible ID type throws error")
     func identifiableWithCustomID() throws {
