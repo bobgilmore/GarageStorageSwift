@@ -19,6 +19,7 @@ public extension KeyedEncodingContainer {
     
     /// Encodes a nested `Identifiable` object as a reference.
     /// Supports `Identifiable` where `ID` is `String`, `UUID`, or `LosslessStringConvertible`.
+    /// Falls back to default encoding if the `ID` type is not supported.
     mutating func encode<T: Encodable & Identifiable>(_ identifiable: T, forKey key: KeyedEncodingContainer<K>.Key) throws {
         // If this encoder does not have a garage, encode as Codable does.
         let encoder = superEncoder()
@@ -27,10 +28,15 @@ public extension KeyedEncodingContainer {
             return
         }
         
-        // Park the object and encode it as a reference
-        let reference = try garage.extractIdentifierString(from: identifiable)
-        try garage.parkEncodable(from: identifiable, identifier: reference)
-        try encode(reference, forKey: key)
+        // Park the object and encode it as a reference.
+        // If the ID type is unsupported, fall back to default encoding.
+        do {
+            let reference = try garage.extractIdentifierString(from: identifiable)
+            try garage.parkEncodable(from: identifiable, identifier: reference)
+            try encode(reference, forKey: key)
+        } catch GarageError.unsupportedIDConformance {
+            try encodeDefault(identifiable, forKey: key)
+        }
     }
 
     /// Encodes a nested `Identifiable` object as a reference, if present.
@@ -42,6 +48,7 @@ public extension KeyedEncodingContainer {
     
     /// Encodes a nested array of `Identifiable` objects as references.
     /// Supports `Identifiable` where `ID` is `String`, `UUID`, or `LosslessStringConvertible`.
+    /// Falls back to default encoding if the `ID` type is not supported.
     mutating func encode<T: Encodable & Identifiable>(_ identifiables: [T], forKey key: KeyedEncodingContainer<K>.Key) throws {
         guard identifiables.count > 0 else { return }
         // If this encoder does not have a garage, encode as Codable does.
@@ -51,10 +58,15 @@ public extension KeyedEncodingContainer {
             return
         }
         
-        // Park the objects and encode them as references
-        try garage.parkAllEncodables(identifiables)
-        let references = try identifiables.map { try garage.extractIdentifierString(from: $0) }
-        try encode(references, forKey: key)
+        // Park the objects and encode them as references.
+        // If the ID type is unsupported, fall back to default encoding.
+        do {
+            try garage.parkAllEncodables(identifiables)
+            let references = try identifiables.map { try garage.extractIdentifierString(from: $0) }
+            try encode(references, forKey: key)
+        } catch GarageError.unsupportedIDConformance {
+            try encodeDefault(identifiables, forKey: key)
+        }
     }
 }
 
@@ -110,6 +122,7 @@ public extension KeyedDecodingContainer {
 
     /// Decodes a reference to a nested `Identifiable` object.
     /// Supports `Identifiable` where `ID` is `String`, `UUID`, or `LosslessStringConvertible`.
+    /// Falls back to default decoding if the value was not encoded as a reference.
     func decode<T: Decodable & Identifiable>(_ identifiable: T.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> T {
         // If this decoder does not have a garage, decode as Codable does.
         let decoder = try superDecoder()
@@ -117,11 +130,23 @@ public extension KeyedDecodingContainer {
             return try decodeDefault(T.self, forKey: key)
         }
         
-        let reference = try decodeReference(forKey: key)
-        guard let object = try garage.retrieveDecodable(T.self, identifier: reference) else {
+        // If the value wasn't encoded as a string reference (e.g., unsupported ID type
+        // that was encoded inline), fall back to default decoding.
+        guard let reference = decodeReferenceIfPresent(forKey: key) else {
+            return try decodeDefault(T.self, forKey: key)
+        }
+        // If the reference resolves to a parked object, return it.
+        if let object = try garage.retrieveDecodable(T.self, identifier: reference) {
+            return object
+        }
+        // The reference didn't resolve. Try default decoding in case the value was
+        // encoded inline (e.g., a string-backed enum with unsupported ID type).
+        // If default decoding also fails, throw the original reference error.
+        do {
+            return try decodeDefault(T.self, forKey: key)
+        } catch {
             throw decoder.missingIdentifiableReference(typeName: "\(T.self)", identifier: reference)
         }
-        return object
     }
     
     /// Wraps the default `decodeIfPresent` implementation so that we can call it from our Identifiable version.
@@ -131,6 +156,7 @@ public extension KeyedDecodingContainer {
     
     /// Decodes a reference to a nested `Identifiable` object, if present.
     /// Supports `Identifiable` where `ID` is `String`, `UUID`, or `LosslessStringConvertible`.
+    /// Falls back to default decoding if the value was not encoded as a reference.
     func decodeIfPresent<T: Decodable & Identifiable>(_ identifiable: T.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> T? {
         // If this decoder does not have a garage, decode as Codable does.
         let decoder = try superDecoder()
@@ -138,14 +164,22 @@ public extension KeyedDecodingContainer {
             return try decodeIfPresentDefault(T.self, forKey: key)
         }
         
+        // If the value wasn't encoded as a string reference (e.g., unsupported ID type
+        // that was encoded inline), fall back to default decoding.
         guard let reference = decodeReferenceIfPresent(forKey: key) else {
-            return nil
+            return try decodeIfPresentDefault(T.self, forKey: key)
         }
-        return try garage.retrieveDecodable(T.self, identifier: reference)
+        // If the reference resolves, return it. Otherwise, the value may have been
+        // encoded inline; try default decoding before returning nil.
+        if let object = try garage.retrieveDecodable(T.self, identifier: reference) {
+            return object
+        }
+        return try decodeIfPresentDefault(T.self, forKey: key)
     }
         
     /// Decodes an array of references to nested `Identifiable` objects.
     /// Supports `Identifiable` where `ID` is `String`, `UUID`, or `LosslessStringConvertible`.
+    /// Falls back to default decoding if the values were not encoded as references.
     func decode<T: Decodable & Identifiable>(_ identifiable: [T].Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> [T] {
         // If this decoder does not have a garage, decode as Codable does.
         let decoder = try superDecoder()
@@ -154,6 +188,12 @@ public extension KeyedDecodingContainer {
         }
         
         let references = try decodeReferencesIfPresent(forKey: key)
+        
+        // If no string references were found but the key may contain inline-encoded
+        // objects (e.g., unsupported ID type), fall back to default decoding.
+        if references.isEmpty {
+            return try decodeIfPresentDefault([T].self, forKey: key) ?? []
+        }
         
         var objects: [T] = []
         for reference in references {
