@@ -96,7 +96,7 @@ struct SwiftErrorTests {
         #expect(description != nil)
         #expect(description?.contains("SwiftPerson") == true)
         #expect(description?.contains("conformance") == true)
-        #expect(description == "Missing Identifiable or Hashable conformance for type: SwiftPerson")
+        #expect(description == "Missing Identifiable conformance for type: SwiftPerson")
     }
     
     @Test("missingConformance error has localized description")
@@ -229,7 +229,7 @@ struct SwiftErrorTests {
         }
     }
     
-    @Test("Missing conformance for Identifiable or Hashable")
+    @Test("Missing conformance for Identifiable")
     func missingConformance() throws {
         let garage = makeTestGarage()
 

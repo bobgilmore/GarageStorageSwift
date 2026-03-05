@@ -20,7 +20,10 @@ struct SwiftAddress {
 // In order to store this as a property of another object in GarageStorage, it must conform to Codable.
 extension SwiftAddress: Codable { }
 
-// In order to store this as a root type, it must conform to either
-// Hashable, or the reference (class) Identifiable type.
-// Since this is a simple type, we go with Hashable.
+// In order to store this as a top-level object, it must conform to Identifiable.
+extension SwiftAddress: Identifiable {
+    // Use a composite key for the identifier.
+    var id: String { "\(street)-\(city)-\(zip)" }
+}
+
 extension SwiftAddress: Hashable { }

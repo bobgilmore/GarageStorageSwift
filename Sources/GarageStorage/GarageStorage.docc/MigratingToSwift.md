@@ -28,7 +28,7 @@ Once you have a `MappableObject` implementation in Swift, the next step is to co
 
 Change any `MappableObject` that assigns an `identifyingAttribute` to `Mappable`. If it's still being used as a *reference type*, it probably ought to remain as such, so keep it as a `class`. Move the `identifyingAttribute` to the `id` property of the class, or map the attribute to the `id` property.
 
-Change any `MappableObject` that lacks an `identifyingAttribute` to a `struct` conforming to `Codable`. It is already being stored anonymously, as if it were a *value type*, so it might as well be a `struct`. Add conformance to `Hashable` if it's used as both an anonymous object and a root object, or if it has significant storage space requirements.
+Change any `MappableObject` that lacks an `identifyingAttribute` to a `struct` conforming to `Codable`. It is already being stored anonymously, as if it were a *value type*, so it might as well be a `struct`. Add conformance to `Identifiable` if it's used as both an anonymous object and a root object.
 
 When converting a type to `Codable`, any properties of other `MappableObjects` that reference that type should add the `@Migratable` property wrapper, to aid with in-place migration from `MappableObject` to `Codable`. By adding the property wrapper, you ensure that the in-line serialized data will migrate correctly to the new Swift type. You do not need to use this property wrapper for *identifiable* (e.g., `Mappable`) types, as they were previously stored as references, and reference migration is automatic.
 

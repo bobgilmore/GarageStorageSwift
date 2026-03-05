@@ -115,26 +115,20 @@ extension Garage {
         }
     }
     
-    /// Resolves an identifier from either an `Identifiable` or a `Hashable`.
-    /// Throws if the type conforms to neither, or if Identifiable has an unsupported ID type.
+    /// Resolves an identifier from an `Identifiable` object.
+    /// Throws if the type does not conform to `Identifiable`, or if `Identifiable.ID` is an unsupported type.
     private func resolveIdentifier<T>(for object: T) throws -> String {
-        // Prefer Identifiable
-        if let identifiable = object as? any Identifiable {
-            return try extractIdentifierString(from: identifiable)
+        guard let identifiable = object as? any Identifiable else {
+            throw GarageError.missingConformance("\(T.self)")
         }
-        // Fallback to Hashable
-        if let hashable = object as? any Hashable {
-            return "\(hashable.hashValue)"
-        }
-        
-        throw GarageError.missingConformance("\(T.self)")
+        return try extractIdentifierString(from: identifiable)
     }
     
-    /// Adds an object conforming to `Encodable` and either `Identifiable` or  `Hashable` to the Garage.
+    /// Adds an object conforming to `Encodable` and `Identifiable` to the Garage.
     ///
-    /// - parameter object: An object conforming to `Encodable` and either `Identifiable` or `Hashable`.
+    /// - parameter object: An object conforming to `Encodable` and `Identifiable`.
     ///
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     public func park<T: Encodable>(_ object: T) throws {
         try context.performAndWait {
             let identifier = try resolveIdentifier(for: object)
@@ -153,11 +147,11 @@ extension Garage {
         }
     }
     
-    /// Adds an array of objects conforming to `Encodable` and either `Identifiable` or `Hashable` to the Garage.
+    /// Adds an array of objects conforming to `Encodable` and `Identifiable` to the Garage.
     ///
-    ///  - parameter objects: An array of objects conforming to `Encodable` and either `Identifiable` or `Hashable`.
+    ///  - parameter objects: An array of objects conforming to `Encodable` and `Identifiable`.
     ///
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     public func parkAll<T: Encodable>(_ objects: [T]) throws {
         try context.performAndWait {
             try parkAllEncodables(objects)
@@ -202,10 +196,10 @@ extension Garage {
     /// Retrieves an object of the specified type conforming to `Decodable` with the specified identifier from the Garage.
     ///
     /// - parameter objectType: The type of the object to retrieve. This type must conform to `Codable`.
-    /// - parameter identifier: The identifier of the object to retrieve. This must match the identifier used when parking the object (from `Identifiable.id` or `Hashable.hashValue`).
+    /// - parameter identifier: The identifier of the object to retrieve. This must match the identifier used when parking the object (from `Identifiable.id`).
     ///
     /// - returns: An object conforming to the specified type, or nil if it was not found.
-    /// - throws: `GarageError.missingConformance` if the identifier type is not supported.
+    /// - throws: `GarageError.unsupportedIDConformance` if the identifier type is not supported.
     public func retrieve<T: Decodable, ID>(_ objectType: T.Type, identifier: ID) throws -> T? {
         let typeName = String(describing: T.self)
         let identifierString = try convertIdentifierToString(identifier)
@@ -217,10 +211,10 @@ extension Garage {
     /// Retrieves an object of the specified type conforming to `Decodable` and ``Syncable`` with the specified identifier from the Garage.
     ///
     /// - parameter objectType: The type of the object to retrieve. This type must conform to `Codable` and ``Syncable``.
-    /// - parameter identifier: The identifier of the object to retrieve. This must match the identifier used when parking the object (from `Identifiable.id` or `Hashable.hashValue`).
+    /// - parameter identifier: The identifier of the object to retrieve. This must match the identifier used when parking the object (from `Identifiable.id`).
     ///
     /// - returns: An object conforming to the specified type, or nil if it was not found.
-    /// - throws: `GarageError.missingConformance` if the identifier type is not supported.
+    /// - throws: `GarageError.unsupportedIDConformance` if the identifier type is not supported.
     public func retrieve<T: Decodable & Syncable, ID>(_ objectType: T.Type, identifier: ID) throws -> T? {
         let typeName = String(describing: T.self)
         let identifierString = try convertIdentifierToString(identifier)
@@ -280,7 +274,7 @@ extension Garage {
     /// - parameter syncStatus: The ``SyncStatus`` of the object.
     /// - parameter object: An object of type `T` that conforms to ``Syncable``.
     ///
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     public func setSyncStatus<T: Syncable>(_ syncStatus: SyncStatus, for object: T) throws {
         let typeName = String(describing: T.self)
         let identifier = try resolveIdentifier(for: object)
@@ -291,12 +285,12 @@ extension Garage {
         autosave()
     }
     
-    /// Sets the sync status for an array of objects of the same type `T` conforming to `Identifiable` or `Hashable`, and ``Syncable``.
+    /// Sets the sync status for an array of objects of the same type `T` conforming to `Identifiable` and ``Syncable``.
     ///
     /// - parameter syncStatus: The ``SyncStatus`` of the objects
-    /// - parameter objects: An array of objects of the same type `T` conforming to `Identifiable` or `Hashable`, and ``Syncable``.
+    /// - parameter objects: An array of objects of the same type `T` conforming to `Identifiable` and ``Syncable``.
     ///
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     /// - note: Even if this throws, there still could be objects with their ``Syncable/syncStatus`` set successfully. A false response simply indicates at least one failure.
     public func setSyncStatus<T: Syncable>(_ syncStatus: SyncStatus, for objects: [T]) throws {
         let typeName = String(describing: T.self)
@@ -317,12 +311,12 @@ extension Garage {
         return coreDataObject.syncStatus
     }
     
-    /// Returns the sync status for an object conforming to `Identifiable` or `Hashable`, and ``Syncable``.
+    /// Returns the sync status for an object conforming to `Identifiable` and ``Syncable``.
     ///
-    /// - parameter object: An object conforming to `Identifiable` or `Hashable`, and ``Syncable``.
+    /// - parameter object: An object conforming to `Identifiable` and ``Syncable``.
     ///
     /// - returns: The ``SyncStatus``.
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     public func syncStatus<T: Syncable>(for object: T) throws -> SyncStatus {
         let identifier = try resolveIdentifier(for: object)
         return try context.performAndWait {
@@ -358,11 +352,11 @@ extension Garage {
 
     // MARK: Deleting
     
-    /// Deletes an object conforming to `Decodable` and either `Identifiable` or `Hashable` from the Garage.
+    /// Deletes an object conforming to `Decodable` and `Identifiable` from the Garage.
     ///
-    /// - parameter object: An object conforming to `Decodable` and either `Identifiable` or `Hashable`.
+    /// - parameter object: An object conforming to `Decodable` and `Identifiable`.
     ///
-    /// - throws: `GarageError.missingConformance` if the type does not conform to either `Identifiable` or `Hashable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
+    /// - throws: `GarageError.missingConformance` if the type does not conform to `Identifiable`, or `GarageError.unsupportedIDConformance` if `Identifiable.ID` is not `String`, `UUID`, or `LosslessStringConvertible`.
     public func delete<T: Decodable>(_ object: T) throws {
         let typeName = String(describing: T.self)
         let identifier = try resolveIdentifier(for: object)
