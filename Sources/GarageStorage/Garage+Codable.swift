@@ -39,10 +39,9 @@ extension Garage {
     
     // MARK: - Identifiable ID extraction helpers
     
-    /// Extracts an identifier string representation from an Identifiable ID.
+    /// Returns an identifier string representation from an Identifiable ID, or nil if the ID type is not supported.
     /// Only supports String, UUID, and LosslessStringConvertible ID types.
-    /// - Throws: `GarageError.missingConformance` if the ID type is not supported.
-    internal func extractIdentifierString(from identifiable: any Identifiable) throws -> String {
+    internal func identifierString(from identifiable: any Identifiable) -> String? {
         let id = identifiable.id
         
         // Supported conversions for ID.
@@ -50,8 +49,17 @@ extension Garage {
         if let uuidId = id as? UUID { return uuidId.uuidString }
         if let convertibleId = id as? any LosslessStringConvertible { return String(convertibleId) }
         
-        // Unsupported ID type - throw error
-        throw GarageError.unsupportedIDConformance(String(describing: type(of: id)))
+        return nil
+    }
+    
+    /// Extracts an identifier string representation from an Identifiable ID.
+    /// Only supports String, UUID, and LosslessStringConvertible ID types.
+    /// - Throws: `GarageError.unsupportedIDConformance` if the ID type is not supported.
+    internal func extractIdentifierString(from identifiable: any Identifiable) throws -> String {
+        guard let result = identifierString(from: identifiable) else {
+            throw GarageError.unsupportedIDConformance(String(describing: type(of: identifiable.id)))
+        }
+        return result
     }
  
     /// Converts an identifier to a string representation.

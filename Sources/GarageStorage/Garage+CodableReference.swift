@@ -30,11 +30,10 @@ public extension KeyedEncodingContainer {
         
         // Park the object and encode it as a reference.
         // If the ID type is unsupported, fall back to default encoding.
-        do {
-            let reference = try garage.extractIdentifierString(from: identifiable)
+        if let reference = garage.identifierString(from: identifiable) {
             try garage.parkEncodable(from: identifiable, identifier: reference)
             try encode(reference, forKey: key)
-        } catch GarageError.unsupportedIDConformance {
+        } else {
             try encodeDefault(identifiable, forKey: key)
         }
     }
@@ -60,11 +59,11 @@ public extension KeyedEncodingContainer {
         
         // Park the objects and encode them as references.
         // If the ID type is unsupported, fall back to default encoding.
-        do {
+        let references = identifiables.compactMap { garage.identifierString(from: $0) }
+        if references.count == identifiables.count {
             try garage.parkAllEncodables(identifiables)
-            let references = try identifiables.map { try garage.extractIdentifierString(from: $0) }
             try encode(references, forKey: key)
-        } catch GarageError.unsupportedIDConformance {
+        } else {
             try encodeDefault(identifiables, forKey: key)
         }
     }
