@@ -50,12 +50,12 @@ If this type is only embedded in another object, then no additional work is requ
 
 ### What making an object Hashable does
 
-In the above case, an Address is going to be stored as an embedded object. However, if we wanted to also store Address at the top level, for example as part of an array of "known" or "recent" addresses to choose from, we might conform this type to `Hashable`.  In this example, since the properties are all `Hashable`, the type may simply be declared to also have `Hashable` conformance:
+In the above case, an Address is going to be stored as an embedded object. However, if we also wanted to store and fetch multiple Addresses at the top level, for example as part of an array of "known" or "recent" addresses to choose from, we might conform this type to `Hashable`.  In this example, since the properties are all `Hashable`, the type may simply be declared to also have `Hashable` conformance:
 ```
 extension Address: Hashable { }
 ```
 
-If many references of this type with the same value are being embedded (e.g., multiple objects embedding the exact same `Address`), then specifying `Hashable` conformance will also help reduce the overall storage footprint, by storing the value only once.
+NOTE: The hash value is only required by the Garage to ensure that there is a 1-to-1 correspondence of an instance and its underlying Core Data object *at runtime*. Due to the nature of the Swift `Hashable` implementation, the hash value of an object may be different across multiple sessions. Therefore, it is not safe for clients to use the hash value in any other way, for example to store and retrieve instances across multiple sessions. For that scenario, use `Identifiable` instead.
 
 ### Creating a top-level object
 
@@ -157,7 +157,7 @@ It's worth going into a bit of detail about how *identified*, *unidentified*, an
 
 Any `Identifiable` object with an *id* attribute will be stored as its own separate object in the Garage, and each *reference* will point back to that object. This is great if you have a bunch of objects that reference each other, as the graph is properly maintained in the garage, so a change to one object will be "seen" by the other objects pointing to it. This also enables you to *retrieve* any top-level object by its identifier.
 
-If you instead conform the type to `Hashable` then there is still only one instance or value of its type in storage; however, it is now an *unidentified* object. If you park an unidentified *Object A*, then change one of its properties, and park *Object A* again, you'll now have *two different versions* of *Object A* in the Garage, as its hash value has changed. If *Object A* had had an identifier, then *Object A* would have just been updated when it was parked the second time. Therefore, it's considered a best practice for top-level reference types to conform to `Identifiable` so that they always have an *id* attribute, and are treated as the same instance in storage.
+If you instead conform the type to `Hashable` then there is still only one instance or value of its type in storage at runtime; however, it is now an *unidentified* object. If you park an unidentified *Object A*, then change one of its properties, and park *Object A* again, you'll now have *two different versions* of *Object A* in the Garage, as its hash value has changed. If *Object A* had had an identifier, then *Object A* would have just been updated when it was parked the second time. Additionally, the hash value of the object may be different between different sessions, due to the nature of the Swift Hashable implementation. Therefore, it's considered a best practice for top-level reference types to conform to `Identifiable` so that they always have an *id* attribute, and are treated as the same instance in storage.
 
 However, if the object is an embedded *property* of a top-level object, you may want to leave it *unidentified*, especially if it doesn't have an attribute that's logically its identifier, or if it is a value type. If the object does not conform to `Hashable`, then it is completely *anonymous*: it is serialized as in-line JSON, instead of having a separate underlying core data object, as an `Identifiable` or `Hashable` object would. This means you won't be able to retrieve anonymous sub-objects by type directly. To make an object completely anonymous, it only needs to conform to `Codable`. 
 
