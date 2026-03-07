@@ -89,15 +89,6 @@ public extension KeyedDecodingContainer {
         return reference
     }
 
-    private func decodeReference(forKey key: KeyedDecodingContainer<K>.Key) throws -> String {
-        guard let reference = decodeReferenceIfPresent(forKey: key) else {
-            let decoder = try superDecoder()
-            throw decoder.missingIdentifiableReference()
-        }
-        
-        return reference
-    }
-    
     private func decodeReferencesIfPresent(forKey key: KeyedDecodingContainer<K>.Key) throws -> [String] {
         let references: [String]
         
