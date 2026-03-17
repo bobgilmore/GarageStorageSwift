@@ -115,8 +115,9 @@ struct TestableEdgeCaseTests {
     
     @Test("Custom encryptor encrypts data differently than unencrypted storage")
     func customEncryptor() async throws {
-        let storeName = "GarageStorageTests/CustomEncryptorGarage.sqlite"
+        let storeName = "\(testGarageRootFolder)CustomEncryptorGarage.sqlite"
         let description = Garage.makePersistentStoreDescription(storeName)
+        description.type = NSInMemoryStoreType
 #if os(iOS)
         description.setOption(FileProtectionType.complete as NSObject, forKey: NSPersistentStoreFileProtectionKey)
 #endif
@@ -127,8 +128,9 @@ struct TestableEdgeCaseTests {
             #expect(error == nil, "Should not have thrown an error")
         }
         
-        let unencryptedStoreName = "NoEncryptorGarage.sqlite"
+        let unencryptedStoreName = "\(testGarageRootFolder)NoEncryptorGarage.sqlite"
         let unencryptedDescription = Garage.makePersistentStoreDescription(unencryptedStoreName)
+        unencryptedDescription.type = NSInMemoryStoreType
         let unencryptedGarage = Garage(with: [unencryptedDescription])
         unencryptedGarage.loadPersistentStores { (description, error) in
             #expect(error == nil, "Should not have thrown an error")

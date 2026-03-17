@@ -19,7 +19,7 @@ struct SwiftGarageTests {
     @Test("Convenience initializer creates garage with named store")
     func convenienceInitializer() throws {
         // Use the convenience initializer that creates a garage with a named store
-        let garage = Garage(named: "GarageStorageTests/ConvenienceInitializer")
+        let garage = makeTestGarage()
         
         // Verify the garage is functional by parking and retrieving an object
         let sam = swiftPerson()

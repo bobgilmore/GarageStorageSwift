@@ -324,6 +324,24 @@ struct SwiftCodableTests {
         #expect(remainingProducts[0].name == "iPhone", "Expected iPhone to remain")
     }
     
+    @Test("Identifiable enum with Self ID referenced by top-level object can be parked and retrieved")
+    func identifiableEnumWithSelfID() throws {
+        let garage = makeTestGarage()
+        
+        // Create an item whose status property is an enum conforming to
+        // Codable & Identifiable where ID == Self (not String/UUID/LosslessStringConvertible).
+        let item = SwiftItemWithStatus(name: "TestItem", status: .active)
+        
+        // Parking the top-level object should succeed. The status enum should
+        // be encoded inline via encodeDefault, not as a separate reference.
+        try garage.park(item)
+        
+        // Retrieving should succeed and the status value should round-trip.
+        let retrieved = try #require(try garage.retrieve(SwiftItemWithStatus.self, identifier: "TestItem"))
+        #expect(retrieved.name == "TestItem", "expected name to match")
+        #expect(retrieved.status == .active, "expected status to be .active")
+    }
+
     @Test("Identifiable with custom non-convertible ID type throws error")
     func identifiableWithCustomID() throws {
         let garage = makeTestGarage()
